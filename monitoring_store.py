@@ -11,6 +11,7 @@ from typing import Any, Iterable
 from config import Config
 from detection_schema import DETECTION_CLASS_NAMES, class_id_from_payload, class_name_from_id, class_name_from_payload
 from water_quality_rules import classify_water_quality
+from werkzeug.security import check_password_hash, generate_password_hash
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from reportlab.lib import colors
@@ -109,18 +110,23 @@ class UserAccount:
     role: str
     name: str
     active: bool = True
+    password_hash: str = ""
 
 
 class MonitoringStore:
     def __init__(self) -> None:
         now = datetime.utcnow().replace(microsecond=0)
 
-        # Passwords are handled by the auth layer in app.py (hashed). These
-        # records are display-only for the Users page, so no secrets are stored.
+        # Built-in accounts, seeded with hashed passwords from config/env.
+        # Admins can add more at runtime from the Users page (persisted to
+        # Firebase when enabled, so they survive restarts).
         self.user_accounts = [
-            UserAccount("admin@lakewatch.local", "", "Admin", "System Admin"),
-            UserAccount("researcher@lakewatch.local", "", "Researcher", "Research Lead"),
-            UserAccount("viewer@lakewatch.local", "", "Viewer", "Field Viewer"),
+            UserAccount("admin@lakewatch.local", "", "Admin", "System Admin",
+                        password_hash=generate_password_hash(Config.ADMIN_PASSWORD)),
+            UserAccount("researcher@lakewatch.local", "", "Researcher", "Research Lead",
+                        password_hash=generate_password_hash(Config.RESEARCHER_PASSWORD)),
+            UserAccount("viewer@lakewatch.local", "", "Viewer", "Field Viewer",
+                        password_hash=generate_password_hash(Config.VIEWER_PASSWORD)),
         ]
 
         self.thresholds = {"tds": 300, "turbidity": 10, "temperature": 35}
@@ -149,6 +155,7 @@ class MonitoringStore:
         self.last_ingest_at: datetime | None = None
 
         self._bootstrap_firebase()
+        self._load_persisted_users()
 
     def _bootstrap_firebase(self) -> None:
         # Firebase is optional. If anything goes wrong (missing credentials,
@@ -467,6 +474,116 @@ class MonitoringStore:
         self.system_snapshot["camera"] = "Streaming"
         self.system_snapshot["last_update"] = _utc(datetime.utcnow())
         return record
+
+    # ----- User management (runtime, admin-editable) -----------------------
+
+    VALID_ROLES = ("Admin", "Researcher", "Viewer")
+    PROTECTED_EMAIL = "admin@lakewatch.local"  # cannot be deleted (prevents lockout)
+
+    @staticmethod
+    def _user_key(email: str) -> str:
+        # Firebase keys can't contain . $ # [ ] / — encode the email safely.
+        return base64.urlsafe_b64encode(email.strip().lower().encode()).decode().rstrip("=")
+
+    def _find_user(self, email: str) -> UserAccount | None:
+        email = email.strip().lower()
+        for user in self.user_accounts:
+            if user.email == email:
+                return user
+        return None
+
+    def _load_persisted_users(self) -> None:
+        """Merge any admin-added users stored in Firebase into the account list."""
+        ref = self._root_child("users")
+        if ref is None:
+            return
+        try:
+            raw = ref.get() or {}
+        except Exception as exc:  # noqa: BLE001
+            print(f"[monitoring_store] Could not load users from Firebase: {exc}")
+            return
+        records = raw.values() if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
+        for rec in records:
+            if not isinstance(rec, dict) or not rec.get("email"):
+                continue
+            email = str(rec["email"]).strip().lower()
+            account = UserAccount(
+                email=email,
+                password="",
+                role=rec.get("role", "Viewer"),
+                name=rec.get("name", email.split("@")[0].title()),
+                active=bool(rec.get("active", True)),
+                password_hash=rec.get("password_hash", ""),
+            )
+            # Replace if exists, else append.
+            self.user_accounts = [u for u in self.user_accounts if u.email != email]
+            self.user_accounts.append(account)
+
+    def _persist_user(self, account: UserAccount) -> None:
+        ref = self._root_child("users")
+        if ref is None:
+            return
+        try:
+            ref.child(self._user_key(account.email)).set({
+                "email": account.email,
+                "role": account.role,
+                "name": account.name,
+                "active": account.active,
+                "password_hash": account.password_hash,
+            })
+        except Exception as exc:  # noqa: BLE001
+            print(f"[monitoring_store] Could not persist user to Firebase: {exc}")
+
+    def verify_login(self, email: str, password: str) -> str | None:
+        """Return the user's role if credentials are valid, else None."""
+        user = self._find_user(email)
+        if user and user.active and user.password_hash and check_password_hash(user.password_hash, password):
+            return user.role
+        return None
+
+    def user_exists(self, email: str) -> bool:
+        return self._find_user(email) is not None
+
+    def add_user(self, email: str, password: str, role: str, name: str = "") -> tuple[bool, str]:
+        """Create or update a user. Returns (ok, message)."""
+        email = (email or "").strip().lower()
+        password = password or ""
+        role = (role or "").strip().title()
+        if "@" not in email or "." not in email:
+            return False, "Please enter a valid email address."
+        if len(password) < 6:
+            return False, "Password must be at least 6 characters."
+        if role not in self.VALID_ROLES:
+            return False, f"Role must be one of: {', '.join(self.VALID_ROLES)}."
+
+        account = UserAccount(
+            email=email,
+            password="",
+            role=role,
+            name=name.strip() or email.split("@")[0].title(),
+            active=True,
+            password_hash=generate_password_hash(password),
+        )
+        existed = self._find_user(email) is not None
+        self.user_accounts = [u for u in self.user_accounts if u.email != email]
+        self.user_accounts.append(account)
+        self._persist_user(account)
+        return True, ("User updated." if existed else "User added.")
+
+    def delete_user(self, email: str) -> tuple[bool, str]:
+        email = (email or "").strip().lower()
+        if email == self.PROTECTED_EMAIL:
+            return False, "The primary admin account cannot be deleted."
+        if not self._find_user(email):
+            return False, "User not found."
+        self.user_accounts = [u for u in self.user_accounts if u.email != email]
+        ref = self._root_child("users")
+        if ref is not None:
+            try:
+                ref.child(self._user_key(email)).delete()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[monitoring_store] Could not delete user from Firebase: {exc}")
+        return True, "User removed."
 
     def users(self) -> list[dict[str, Any]]:
         return [

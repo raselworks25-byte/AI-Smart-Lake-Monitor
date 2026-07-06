@@ -380,12 +380,12 @@ def login():
 
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
-        user = USERS.get(email)
-        if user and check_password_hash(user.password_hash, password):
+        role = store.verify_login(email, password)
+        if role:
             session.clear()
             session.permanent = True
-            session["user_email"] = user.email
-            session["user_role"] = user.role
+            session["user_email"] = email
+            session["user_role"] = role
             return redirect(url_for("dashboard"))
         error = "Invalid email or password."
 
@@ -399,7 +399,7 @@ def forgot_password():
         if not csrf_ok():
             return render_template("forgot_password.html", message="Security token expired. Please try again.", app_name=app.config["APP_NAME"]), 400
         email = request.form.get("email", "").strip().lower()
-        if email in USERS:
+        if store.user_exists(email):
             message = f"Password reset request prepared for {email}."
         else:
             message = "If the email exists, a reset link would be sent in production."
@@ -449,8 +449,38 @@ def users_page():
         app_name=app.config["APP_NAME"],
         user=current_user(),
         users=store.users(),
+        roles=list(store.VALID_ROLES),
         role_descriptions=ROLE_DESCRIPTIONS,
+        notice=request.args.get("notice"),
+        error=request.args.get("error"),
     )
+
+
+@app.route("/users/add", methods=["POST"])
+@login_required
+@require_role("Admin")
+def users_add():
+    if not csrf_ok():
+        return redirect(url_for("users_page", error="Security token expired. Please try again."))
+    ok, message = store.add_user(
+        email=request.form.get("email", ""),
+        password=request.form.get("password", ""),
+        role=request.form.get("role", ""),
+        name=request.form.get("name", ""),
+    )
+    key = "notice" if ok else "error"
+    return redirect(url_for("users_page", **{key: message}))
+
+
+@app.route("/users/delete", methods=["POST"])
+@login_required
+@require_role("Admin")
+def users_delete():
+    if not csrf_ok():
+        return redirect(url_for("users_page", error="Security token expired. Please try again."))
+    ok, message = store.delete_user(request.form.get("email", ""))
+    key = "notice" if ok else "error"
+    return redirect(url_for("users_page", **{key: message}))
 
 
 @app.route("/alerts")

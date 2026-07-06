@@ -4,7 +4,45 @@
 <section class="metric-card mb-4">
   <div class="metric-label">User Management</div>
   <h3>Roles and access</h3>
-  <p class="text-secondary mb-0">Admin-only view for demo accounts and role descriptions.</p>
+  <p class="text-secondary mb-0">Admin-only. Add new users, set their password and role, or remove them.</p>
+</section>
+
+{% if notice %}
+<div class="alert alert-success" role="alert">{{ notice }}</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger" role="alert">{{ error }}</div>
+{% endif %}
+
+<section class="metric-card mb-4">
+  <div class="metric-label">Add User</div>
+  <h3>Create a new account</h3>
+  <form method="post" action="{{ url_for('users_add') }}" class="row g-3 mt-1">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-3">
+      <label class="form-label">Email (Gmail)</label>
+      <input class="form-control" type="email" name="email" placeholder="name@gmail.com" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Full name</label>
+      <input class="form-control" type="text" name="name" placeholder="Optional">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Password</label>
+      <input class="form-control" type="text" name="password" placeholder="Min 6 characters" required>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Role</label>
+      <select class="form-select" name="role" required>
+        {% for r in roles %}
+        <option value="{{ r }}">{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1 d-flex align-items-end">
+      <button class="btn btn-primary w-100" type="submit">Add</button>
+    </div>
+  </form>
 </section>
 
 <section class="dashboard-grid two-col">
@@ -19,6 +57,7 @@
             <th>Name</th>
             <th>Role</th>
             <th>Status</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -28,6 +67,17 @@
             <td>{{ row.name }}</td>
             <td>{{ row.role }}</td>
             <td><span class="status-badge status-ok">{{ 'Active' if row.active else 'Disabled' }}</span></td>
+            <td class="text-end">
+              {% if row.email != 'admin@lakewatch.local' %}
+              <form method="post" action="{{ url_for('users_delete') }}" onsubmit="return confirm('Remove {{ row.email }}?');" class="d-inline">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="email" value="{{ row.email }}">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+              </form>
+              {% else %}
+              <span class="text-secondary small">Primary</span>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>

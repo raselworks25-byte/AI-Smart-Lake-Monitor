@@ -11,11 +11,11 @@ class Config:
     """Production configuration - all secrets must be set via environment variables."""
 
     # --- Core secrets (required in production) ---
-    SECRET_KEY = os.getenv("SECRET_KEY", "f4e60b3ce957315d6de99693d31dbd51396e42af048c18dea744086e99d7eeed")
+    SECRET_KEY = os.getenv("SECRET_KEY", "38b595f34f47d0d9c676247a0f91869c2930393da36b6629857e34decac3faf1")
     if not SECRET_KEY:
         raise ValueError("CRITICAL: SECRET_KEY environment variable must be set")
 
-    INGEST_API_KEY = os.getenv("INGEST_API_KEY", "f4e60b3ce957315d6de99693d31dbd51396e42af048c18dea744086e99d7eeed")
+    INGEST_API_KEY = os.getenv("INGEST_API_KEY", "5e579ff0da792cb6361a385a08b3167ce0fe5c8ff04cbeda")
     if not INGEST_API_KEY:
         raise ValueError("CRITICAL: INGEST_API_KEY environment variable must be set")
 
