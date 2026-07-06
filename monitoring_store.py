@@ -151,29 +151,38 @@ class MonitoringStore:
         self._bootstrap_firebase()
 
     def _bootstrap_firebase(self) -> None:
+        # Firebase is optional. If anything goes wrong (missing credentials,
+        # bad URL, no network), log a warning and fall back to in-memory
+        # storage instead of crashing the whole app on startup.
         if not firebase_admin or not Config.FIREBASE_DATABASE_URL:
             return
 
         try:
-            firebase_admin.get_app()
-        except ValueError:
-            credential = None
-            credentials_path = Config.FIREBASE_CREDENTIALS_PATH
-            if credentials_path and os.path.exists(credentials_path):
-                credential = credentials.Certificate(credentials_path)
-            else:
-                try:
+            try:
+                firebase_admin.get_app()
+            except ValueError:
+                credentials_path = Config.FIREBASE_CREDENTIALS_PATH
+                if credentials_path and os.path.exists(credentials_path):
+                    credential = credentials.Certificate(credentials_path)
+                else:
+                    # No service-account file present. Try Application Default
+                    # Credentials; if they aren't configured this will raise,
+                    # and we fall back to in-memory below.
                     credential = credentials.ApplicationDefault()
-                except Exception:
-                    return
 
-            options: dict[str, Any] = {"databaseURL": Config.FIREBASE_DATABASE_URL}
-            if Config.FIREBASE_STORAGE_BUCKET:
-                options["storageBucket"] = Config.FIREBASE_STORAGE_BUCKET
-            firebase_admin.initialize_app(credential, options)
+                options: dict[str, Any] = {"databaseURL": Config.FIREBASE_DATABASE_URL}
+                if Config.FIREBASE_STORAGE_BUCKET:
+                    options["storageBucket"] = Config.FIREBASE_STORAGE_BUCKET
+                firebase_admin.initialize_app(credential, options)
 
-        self.firebase_enabled = True
-        self.firebase_root = db.reference("monitoring")
+            # Validating the connection also happens here, inside the guard.
+            self.firebase_root = db.reference("monitoring")
+            self.firebase_enabled = True
+            print("[monitoring_store] Firebase connected.")
+        except Exception as exc:  # noqa: BLE001 - any failure -> in-memory mode
+            self.firebase_enabled = False
+            self.firebase_root = None
+            print(f"[monitoring_store] Firebase unavailable, using in-memory storage: {exc}")
 
     def _use_firebase(self) -> bool:
         return self.firebase_enabled and self.firebase_root is not None
