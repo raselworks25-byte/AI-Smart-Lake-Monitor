@@ -1,0 +1,22 @@
+# Render Blueprint - deploys the web dashboard as a native Python service.
+# In Render: New > Blueprint, connect your repo, then fill in the secret values.
+services:
+  - type: web
+    name: flooting-boat
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: SECRET_KEY
+        generateValue: true          # Render auto-generates a strong value
+      - key: INGEST_API_KEY
+        sync: false                   # you enter this (Pi must use the same value)
+      - key: ADMIN_PASSWORD
+        sync: false                   # you enter a strong admin password

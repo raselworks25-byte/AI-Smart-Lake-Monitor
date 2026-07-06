@@ -1,0 +1,20 @@
+# Docker ignore file - don't include these in Docker image
+.git
+.gitignore
+.venv
+venv
+env
+*.pyc
+__pycache__
+*.egg-info
+.pytest_cache
+.coverage
+Web_LIVE_Image
+.env
+.env.local
+*.log
+.DS_Store
+node_modules
+dist
+build
+*.env.example

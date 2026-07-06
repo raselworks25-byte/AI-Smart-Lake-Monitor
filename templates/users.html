@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="metric-card mb-4">
+  <div class="metric-label">User Management</div>
+  <h3>Roles and access</h3>
+  <p class="text-secondary mb-0">Admin-only view for demo accounts and role descriptions.</p>
+</section>
+
+<section class="dashboard-grid two-col">
+  <div class="metric-card table-card">
+    <div class="metric-label">Accounts</div>
+    <h3>System users</h3>
+    <div class="table-responsive mt-3">
+      <table class="table table-dark align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in users %}
+          <tr>
+            <td>{{ row.email }}</td>
+            <td>{{ row.name }}</td>
+            <td>{{ row.role }}</td>
+            <td><span class="status-badge status-ok">{{ 'Active' if row.active else 'Disabled' }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label">Role Policies</div>
+    <h3>Access levels</h3>
+    <div class="vstack gap-3 mt-3">
+      {% for role, description in role_descriptions.items() %}
+      <div class="role-card">
+        <strong>{{ role }}</strong>
+        <div class="text-secondary">{{ description }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

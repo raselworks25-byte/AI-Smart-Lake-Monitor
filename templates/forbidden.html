@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="metric-card auth-panel">
+  <div class="metric-label">Access Denied</div>
+  <h3>You do not have permission to open this page.</h3>
+  <p class="text-secondary">Ask an administrator to grant the required role if you need access.</p>
+  <a class="btn btn-primary mt-2" href="{{ url_for('dashboard') }}">Back to dashboard</a>
+</section>
+{% endblock %}

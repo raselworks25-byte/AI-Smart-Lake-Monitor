@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<section class="metric-card" style="margin-bottom:16px;">
+  <div class="metric-label">Reports</div>
+  <h3 style="margin-bottom:4px;">Generate &amp; Export Monitoring Reports</h3>
+  <p class="text-secondary mb-0">Filter by period, date range, object type, and status — then export or review inline.</p>
+</section>
+
+<!-- ── Filters + Export ── -->
+<section class="dashboard-grid two-col" style="margin-bottom:16px;">
+  <div class="metric-card">
+    <div class="metric-label">Filters</div>
+    <h3>Refine Report Data</h3>
+    <form method="get" class="vstack gap-3" style="margin-top:4px;">
+      <div class="filters-stack">
+        <div>
+          <label class="report-field-label">Period</label>
+          <select class="form-select" name="period">
+            {% for option in ['today', 'week', 'month', 'year', 'all'] %}
+            <option value="{{ option }}" {% if filters.period == option %}selected{% endif %}>{{ option|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label class="report-field-label">From</label>
+            <input class="form-control" type="date" name="date_from" value="{{ filters.date_from }}">
+          </div>
+          <div>
+            <label class="report-field-label">To</label>
+            <input class="form-control" type="date" name="date_to" value="{{ filters.date_to }}">
+          </div>
+        </div>
+        <div>
+          <label class="report-field-label">Search keyword</label>
+          <input class="form-control" type="text" name="query" value="{{ filters.query }}" placeholder="e.g. bottle, plastic…">
+        </div>
+        <div>
+          <label class="report-field-label">Object type</label>
+          <select class="form-select" name="object_type">
+            {% for option in detection_types %}
+            <option value="{{ option }}" {% if filters.object_type == option %}selected{% endif %}>{{ option|replace('_', ' ')|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="report-field-label">Water status</label>
+          <select class="form-select" name="status">
+            {% for option in water_quality_statuses %}
+            <option value="{{ option }}" {% if filters.status == option %}selected{% endif %}>{{ option|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Apply Filters</button>
+    </form>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-label">Export</div>
+    <h3>Download Filtered Data</h3>
+    <div class="export-grid" style="margin-top:12px;">
+      <a class="btn-soft btn-teal" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid rgba(0,229,204,0.25);font-size:0.82rem;font-weight:600;text-decoration:none;color:var(--teal);" href="{{ url_for('export_report', fmt='csv',  dataset='combined', **query_params) }}">⬇ CSV</a>
+      <a class="btn-soft" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid var(--glass-border);font-size:0.82rem;font-weight:600;text-decoration:none;color:var(--text-2);" href="{{ url_for('export_report', fmt='xlsx', dataset='combined', **query_params) }}">⬇ Excel</a>
+      <a class="btn-soft" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid var(--glass-border);font-size:0.82rem;font-weight:600;text-decoration:none;color:var(--text-2);" href="{{ url_for('export_report', fmt='pdf',  dataset='combined', **query_params) }}">⬇ PDF</a>
+    </div>
+
+    <!-- Summary Stats -->
+    <div style="margin-top:20px;">
+      <div class="metric-label" style="margin-bottom:10px;">Summary Counts</div>
+      <div class="report-highlights">
+        <div class="report-highlight">
+          <strong>{{ summary.detections }}</strong>
+          <span>Detection rows</span>
+        </div>
+        <div class="report-highlight">
+          <strong>{{ summary.water_samples }}</strong>
+          <span>Water samples</span>
+        </div>
+        <div class="report-highlight">
+          <strong>{{ summary.good_status }}</strong>
+          <span>Good readings</span>
+        </div>
+        <div class="report-highlight">
+          <strong>{{ summary.poor_status }}</strong>
+          <span>Poor readings</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Water Quality Monitoring ── -->
+{% set wrows = report.water_logs %}
+{% if wrows %}
+  {% set tds_vals   = wrows | map(attribute='tds')         | list %}
+  {% set turb_vals  = wrows | map(attribute='turbidity')   | list %}
+  {% set temp_vals  = wrows | map(attribute='temperature') | list %}
+  {% set tds_avg    = (tds_vals  | sum / tds_vals  | length) | round(1) %}
+  {% set turb_avg   = (turb_vals | sum / turb_vals | length) | round(2) %}
+  {% set temp_avg   = (temp_vals | sum / temp_vals | length) | round(1) %}
+  {% set tds_min    = tds_vals  | min %}
+  {% set tds_max    = tds_vals  | max %}
+  {% set turb_min   = turb_vals | min %}
+  {% set turb_max   = turb_vals | max %}
+  {% set temp_min   = temp_vals | min %}
+  {% set temp_max   = temp_vals | max %}
+{% endif %}
+
+<section class="metric-card" style="margin-bottom:16px;">
+  <div class="metric-header" style="margin-bottom:16px;">
+    <div>
+      <div class="metric-label">Water Quality Monitoring</div>
+      <h3 style="margin-bottom:0;">Sensor Summary — TDS · Turbidity · Temperature</h3>
+    </div>
+    <span class="status-badge {% if summary.poor_status == 0 %}status-ok{% elif summary.poor_status < summary.water_samples // 3 %}status-warn{% else %}status-bad{% endif %}">
+      {{ summary.good_status }} / {{ summary.water_samples }} Good
+    </span>
+  </div>
+
+  {% if wrows %}
+  <!-- Sensor stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px;">
+
+    <!-- TDS -->
+    <div class="sensor-stat-card">
+      <div class="sensor-stat-header">
+        <span class="sensor-icon" style="background:rgba(0,229,204,0.12);color:var(--teal);">💧</span>
+        <div>
+          <div class="sensor-stat-name">TDS</div>
+          <div class="sensor-stat-unit">ppm · threshold 300</div>
+        </div>
+      </div>
+      <div class="sensor-stat-avg">{{ tds_avg }}</div>
+      <div class="sensor-stat-label">Average</div>
+      <div class="sensor-stat-range">
+        <span class="sensor-range-chip range-min">↓ {{ tds_min }} min</span>
+        <span class="sensor-range-chip range-max">↑ {{ tds_max }} max</span>
+      </div>
+      <div class="sensor-bar-wrap">
+        <div class="sensor-bar" style="width:{{ [(tds_avg / 300 * 100), 100] | min | round }}%;background:linear-gradient(90deg,var(--teal),#0099cc);"></div>
+      </div>
+      <div class="sensor-bar-labels"><span>0</span><span>300 ppm</span></div>
+    </div>
+
+    <!-- Turbidity -->
+    <div class="sensor-stat-card">
+      <div class="sensor-stat-header">
+        <span class="sensor-icon" style="background:rgba(245,158,11,0.12);color:var(--amber);">🌊</span>
+        <div>
+          <div class="sensor-stat-name">Turbidity</div>
+          <div class="sensor-stat-unit">NTU · threshold 10</div>
+        </div>
+      </div>
+      <div class="sensor-stat-avg" style="color:var(--amber);">{{ turb_avg }}</div>
+      <div class="sensor-stat-label">Average</div>
+      <div class="sensor-stat-range">
+        <span class="sensor-range-chip range-min">↓ {{ turb_min }} min</span>
+        <span class="sensor-range-chip range-max">↑ {{ turb_max }} max</span>
+      </div>
+      <div class="sensor-bar-wrap">
+        <div class="sensor-bar" style="width:{{ [(turb_avg / 10 * 100), 100] | min | round }}%;background:linear-gradient(90deg,var(--amber),#d97706);"></div>
+      </div>
+      <div class="sensor-bar-labels"><span>0</span><span>10 NTU</span></div>
+    </div>
+
+    <!-- Temperature -->
+    <div class="sensor-stat-card">
+      <div class="sensor-stat-header">
+        <span class="sensor-icon" style="background:rgba(59,130,246,0.12);color:var(--blue);">🌡️</span>
+        <div>
+          <div class="sensor-stat-name">Temperature</div>
+          <div class="sensor-stat-unit">°C · threshold 35</div>
+        </div>
+      </div>
+      <div class="sensor-stat-avg" style="color:var(--blue);">{{ temp_avg }}</div>
+      <div class="sensor-stat-label">Average</div>
+      <div class="sensor-stat-range">
+        <span class="sensor-range-chip range-min">↓ {{ temp_min }}° min</span>
+        <span class="sensor-range-chip range-max">↑ {{ temp_max }}° max</span>
+      </div>
+      <div class="sensor-bar-wrap">
+        <div class="sensor-bar" style="width:{{ [(temp_avg / 35 * 100), 100] | min | round }}%;background:linear-gradient(90deg,var(--blue),#2563eb);"></div>
+      </div>
+      <div class="sensor-bar-labels"><span>0</span><span>35 °C</span></div>
+    </div>
+
+  </div>
+
+  <!-- Water Quality Sensor Table -->
+  <div class="metric-label" style="margin-bottom:10px;">Sensor Readings Log</div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>
+            <span style="color:var(--teal);">💧</span> TDS (ppm)
+          </th>
+          <th>
+            <span style="color:var(--amber);">🌊</span> Turbidity (NTU)
+          </th>
+          <th>
+            <span style="color:var(--blue);">🌡️</span> Temp (°C)
+          </th>
+          <th>Status</th>
+          <th>TDS Bar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in wrows[:15] %}
+        <tr>
+          <td>{{ row.timestamp }}</td>
+          <td>
+            <span style="font-weight:700;color:{% if row.tds > 300 %}var(--red){% elif row.tds > 230 %}var(--amber){% else %}var(--teal){% endif %};">
+              {{ row.tds }}
+            </span>
+          </td>
+          <td>
+            <span style="font-weight:700;color:{% if row.turbidity > 10 %}var(--red){% elif row.turbidity > 7 %}var(--amber){% else %}var(--text){% endif %};">
+              {{ row.turbidity }}
+            </span>
+          </td>
+          <td>
+            <span style="font-weight:700;color:{% if row.temperature > 35 %}var(--red){% elif row.temperature > 30 %}var(--amber){% else %}var(--blue){% endif %};">
+              {{ row.temperature }}
+            </span>
+          </td>
+          <td>
+            <span class="status-badge {{ 'status-ok' if row.status == 'Good' else 'status-warn' if row.status == 'Moderate' else 'status-bad' }}">
+              {{ row.status }}
+            </span>
+          </td>
+          <td style="min-width:100px;">
+            <div style="height:6px;border-radius:3px;background:var(--glass-border);overflow:hidden;">
+              <div style="height:100%;width:{{ [(row.tds / 300 * 100), 100] | min | round }}%;border-radius:3px;background:{% if row.tds > 300 %}var(--red){% elif row.tds > 230 %}var(--amber){% else %}var(--teal){% endif %};transition:width 0.3s;"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if wrows | length > 15 %}
+        <tr>
+          <td colspan="6" style="text-align:center;color:var(--text-3);font-size:0.8rem;padding:10px;">
+            + {{ wrows | length - 15 }} more rows — export to see full dataset
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding:32px;text-align:center;color:var(--text-3);">No water quality data matches the selected filters.</div>
+  {% endif %}
+</section>
+
+<!-- ── AI Detection Logs ── -->
+<section class="metric-card table-card">
+  <div class="metric-label">Detection Logs</div>
+  <h3>Filtered AI Object Detections</h3>
+  <div class="table-responsive" style="margin-top:12px;">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Type</th>
+          <th>🍶 Bottle</th>
+          <th>🛍 Plastic</th>
+          <th>📄 Paper</th>
+          <th>Total</th>
+          <th>Confidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.detections[:10] %}
+        <tr>
+          <td>{{ row.timestamp }}</td>
+          <td>{{ row.object_type }}</td>
+          <td>{{ row.bottle_count }}</td>
+          <td>{{ row.plastic_count }}</td>
+          <td>{{ row.paper_count }}</td>
+          <td><strong style="color:var(--text);">{{ row.total_objects }}</strong></td>
+          <td><span style="color:var(--teal);">{{ (row.confidence_score * 100)|round(0)|int }}%</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px;">No detections match the selected filters.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

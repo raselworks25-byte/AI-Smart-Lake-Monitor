@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- ── Section 1: Overview (spans full width) ── -->
+<section id="overview" class="dashboard-grid" style="margin-bottom:16px;">
+
+  <!-- System Status — full width hero -->
+  <div class="metric-card hero-card">
+    <div class="metric-header" style="margin-bottom:12px;">
+      <div>
+        <div class="metric-label">Hardware Status</div>
+        <h3 style="margin-bottom:0;">System Status</h3>
+      </div>
+      <div style="font-size:0.72rem;font-family:'JetBrains Mono',monospace;color:var(--text-3);" id="lastUpdateLabel">—</div>
+    </div>
+    <div class="status-grid" id="systemStatus"></div>
+  </div>
+
+  <!-- Water Quality — 1/3 -->
+  <div class="metric-card">
+    <div class="metric-label">Sensor Readings</div>
+    <h3>Current Water Quality</h3>
+    <div class="quality-grid" id="waterQualityCards"></div>
+  </div>
+
+  <!-- AI Detection Summary — 1/3 -->
+  <div class="metric-card">
+    <div class="metric-label">AI Vision</div>
+    <h3>Detection Summary</h3>
+    <div class="detection-grid" id="detectionSummary"></div>
+  </div>
+
+  <!-- Alerts — 1/3 -->
+  <div class="metric-card">
+    <div class="metric-header" style="margin-bottom:0;">
+      <div>
+        <div class="metric-label">Notifications</div>
+        <h3 style="margin-bottom:0;">Active Alerts</h3>
+      </div>
+    </div>
+    <div id="alertsList" class="alerts-list"></div>
+  </div>
+
+</section>
+
+<!-- ── Section 2: Stream + Chart ── -->
+<section class="dashboard-grid two-col" style="margin-bottom:16px;">
+
+  <!-- Live Stream -->
+  <div id="stream" class="metric-card">
+    <div class="metric-header">
+      <div>
+        <div class="metric-label">Raspberry Pi Camera</div>
+        <h3>Live Video Stream</h3>
+      </div>
+      <span class="stream-pill offline-pill" id="streamIndicator">
+        <span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;"></span>
+        Loading
+      </span>
+    </div>
+    <div class="stream-panel">
+      <img id="streamSnapshotImage" class="stream-snapshot" src="/static/img/placeholder-detection.svg" alt="Live camera snapshot">
+      <div class="stream-center-icon">
+        <div class="stream-icon-circle">📷</div>
+        <span style="font-size:0.72rem;color:var(--text-3);font-family:'JetBrains Mono',monospace;">Awaiting feed</span>
+      </div>
+      <div class="stream-overlay">
+        <div class="stream-title">Real-time MJPEG / WebRTC Feed</div>
+        <div class="stream-subtitle">Replace with Raspberry Pi camera source</div>
+      </div>
+    </div>
+    <div class="action-row" style="margin-top:12px;">
+      <button class="btn-soft btn-teal" id="startStream" type="button">▶ Start</button>
+      <button class="btn-soft" id="stopStream" type="button">⏹ Stop</button>
+      <button class="btn-soft" id="snapshotBtn" type="button">📸 Snapshot</button>
+      <button class="btn-soft" id="fullscreenBtn" type="button">⛶ Fullscreen</button>
+    </div>
+  </div>
+
+  <!-- Trend Chart -->
+  <div class="metric-card">
+    <div class="metric-header">
+      <div>
+        <div class="metric-label">Historical Monitoring</div>
+        <h3>Water Quality Trends</h3>
+      </div>
+      <select id="trendPeriod" class="form-select form-select-sm w-auto">
+        <option value="today">Today</option>
+        <option value="week">Week</option>
+        <option value="month">Month</option>
+        <option value="year">Year</option>
+      </select>
+    </div>
+    <div class="chart-wrap" style="height:260px;">
+      <canvas id="trendChart"></canvas>
+    </div>
+    <div class="filters-row" style="margin-top:12px;">
+      <button class="btn-soft" data-filter="today" type="button">Today</button>
+      <button class="btn-soft" data-filter="week" type="button">Week</button>
+      <button class="btn-soft" data-filter="month" type="button">Month</button>
+      <button class="btn-soft" data-filter="year" type="button">Year</button>
+    </div>
+  </div>
+
+</section>
+
+<!-- ── Section 3: Detection Logs ── -->
+<section id="detections" class="metric-card table-card" style="margin-bottom:16px;">
+  <div class="metric-header">
+    <div>
+      <div class="metric-label">Detection Logs</div>
+      <h3>Object Detection History</h3>
+    </div>
+    <div class="filters-row">
+      <button class="btn-soft btn-sm" data-filter="today" type="button">Today</button>
+      <button class="btn-soft btn-sm" data-filter="week" type="button">Week</button>
+      <button class="btn-soft btn-sm" data-filter="month" type="button">Month</button>
+      <button class="btn-soft btn-sm" data-filter="year" type="button">Year</button>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Class ID</th>
+          <th>Class Name</th>
+          <th>Bottle</th>
+          <th>Debris</th>
+          <th>Total</th>
+          <th>Confidence</th>
+        </tr>
+      </thead>
+      <tbody id="detectionTable"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── Section 4: Water Quality Logs ── -->
+<section id="water-quality" class="metric-card table-card">
+  <div class="metric-header">
+    <div>
+      <div class="metric-label">Water Quality Logs</div>
+      <h3>Sensor History</h3>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>TDS (ppm)</th>
+          <th>Turbidity (NTU)</th>
+          <th>Temp (°C)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="waterTable"></tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

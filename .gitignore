@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+instance/
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+*.log
+firebase-key.json

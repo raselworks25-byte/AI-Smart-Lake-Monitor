@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="metric-card">
+  <div class="metric-label">Alert Center</div>
+  <h3>System warnings and events</h3>
+  <p class="text-secondary">Generated alerts for sensor thresholds, device status, and camera uptime.</p>
+
+  <div class="alerts-list mt-4">
+    {% for alert in alerts %}
+    <div class="alert-item {{ alert.level }}">
+      <div>
+        <div class="alert-level">{{ alert.level }}</div>
+        <div>{{ alert.message }}</div>
+      </div>
+      <div class="text-secondary">{{ alert.time }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }} | Sign In</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="login-page">
+  <div class="login-grid">
+
+    <!-- Hero Left Panel -->
+    <section class="login-hero">
+      <div class="hero-badge">AI + IoT + Water Intelligence</div>
+      <h1><span>Monitor</span> your lake cleaning ops in real time.</h1>
+      <p>Raspberry Pi stream, ESP32 sensor packets, live AI detections, water quality alerts — all from one unified dashboard.</p>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <strong>Raspberry Pi</strong>
+          <span>Stream host &amp; gateway</span>
+        </div>
+        <div class="hero-stat">
+          <strong>ESP32</strong>
+          <span>UART sensor bridge</span>
+        </div>
+        <div class="hero-stat">
+          <strong>Firebase</strong>
+          <span>Realtime data layer</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Login Card -->
+    <section class="login-card-wrap">
+      <div class="auth-card">
+        <div class="login-card-head">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="brand-mark">LAKE</div>
+            <div>
+              <div style="font-size:0.8rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.08em;">Flooting Boat</div>
+              <div style="font-size:1rem;font-weight:800;color:var(--text);">Smart AI Lake Monitor</div>
+            </div>
+          </div>
+          <button class="theme-toggle theme-toggle-login" id="themeToggle" type="button" aria-label="Toggle light/dark mode" title="Toggle theme">
+            <span class="theme-toggle-track">
+              <span class="theme-toggle-thumb"></span>
+            </span>
+            <span class="theme-toggle-icon" id="themeIcon">🌙</span>
+          </button>
+        </div>
+
+        <h2>Sign in</h2>
+        <p class="text-secondary mb-4" style="margin-top:4px;">Use your credentials to access the dashboard.</p>
+
+        {% if error %}
+        <div class="alert alert-danger mb-3">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" class="vstack gap-3">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <div>
+            <label class="form-label">Email address</label>
+            <input type="email" name="email" class="form-control" placeholder="admin@test.local" required>
+          </div>
+          <div>
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+          </div>
+          <button class="btn btn-primary w-100" type="submit" style="margin-top:4px;">Sign in to Dashboard →</button>
+        </form>
+
+      
+
+        <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;">
+          <a href="{{ url_for('forgot_password') }}" style="font-size:0.82rem;color:var(--text-2);">Forgot password?</a>
+          <span style="font-size:0.75rem;color:var(--text-3);">Session-based auth</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</body>
+<script>
+  (() => {
+    const htmlEl = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+
+    const applyTheme = (theme) => {
+      htmlEl.setAttribute('data-theme', theme);
+      if (themeIcon) themeIcon.textContent = theme === 'light' ? '☀️' : '🌙';
+      localStorage.setItem('fb-theme', theme);
+    };
+
+    applyTheme(localStorage.getItem('fb-theme') || 'dark');
+    themeToggle?.addEventListener('click', () => {
+      applyTheme(htmlEl.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+  })();
+</script>
+</html>

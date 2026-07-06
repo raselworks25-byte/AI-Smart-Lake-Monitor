@@ -1,0 +1,40 @@
+# Docker Compose for local development and testing
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: lake-monitoring-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=false
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - INGEST_API_KEY=dev-api-key
+      - APP_NAME=Smart AI Lake Monitoring (Dev)
+    volumes:
+      - .:/app
+    command: gunicorn -w 1 -b 0.0.0.0:5000 --reload wsgi:app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: PostgreSQL for persistent data (for future use)
+  # postgres:
+  #   image: postgres:15
+  #   container_name: lake-monitoring-db
+  #   environment:
+  #     POSTGRES_USER: lake_user
+  #     POSTGRES_PASSWORD: lake_password
+  #     POSTGRES_DB: lake_monitoring
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #
+  # volumes:
+  #   postgres_data:
