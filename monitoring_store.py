@@ -331,9 +331,12 @@ class MonitoringStore:
     def detection_summary(self) -> dict[str, Any]:
         rows = self._read_collection("detection_logs") if self._use_firebase() else self.detection_log
         latest_rows = rows[:10]
-        plastic_bottle = sum(1 for row in latest_rows if class_id_from_payload(row) == 0)
-        debris = sum(1 for row in latest_rows if class_id_from_payload(row) == 1)
-        total_waste = sum(row.get("total_objects", 0) for row in latest_rows)
+        latest = latest_rows[0] if latest_rows else {}
+        # Current detection = counts from the most recent frame (no framerate inflation)
+        plastic_bottle = int(latest.get("bottle_count", 0) or 0)
+        debris = int(latest.get("debris_count", 0) or 0)
+        # Recent activity total across the last few frames
+        total_waste = sum(int(row.get("total_objects", 0) or 0) for row in latest_rows)
         return {
             "plastic_bottle": plastic_bottle,
             "debris": debris,
@@ -429,11 +432,13 @@ class MonitoringStore:
         timestamp = _parse_timestamp(payload.get("timestamp")) or datetime.utcnow().replace(microsecond=0)
         class_id = class_id_from_payload(payload)
         class_name = class_name_from_payload(payload)
-        bottle_count = 1 if class_id == 0 else 0
-        debris_count = 1 if class_id == 1 else 0
+        # Honor REAL per-class counts sent by the Pi detection script.
+        # Fall back to class-id based single count only if not provided.
+        bottle_count = int(payload.get("bottle_count", 1 if class_id == 0 else 0) or 0)
+        debris_count = int(payload.get("debris_count", 1 if class_id == 1 else 0) or 0)
         total_objects = int(payload.get("total_objects", payload.get("count", 0) or 0))
         if not total_objects:
-            total_objects = max(bottle_count + debris_count, 1)
+            total_objects = bottle_count + debris_count
         record = {
             "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             "class_id": class_id,
