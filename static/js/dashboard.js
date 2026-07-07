@@ -156,7 +156,14 @@
       const payload = await response.json();
       const snapshotImage = document.getElementById('streamSnapshotImage');
       if (snapshotImage && payload.snapshot_url) {
-        snapshotImage.src = `${payload.snapshot_url}${payload.snapshot_url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        const url = payload.snapshot_url;
+        // data: URLs (base64 frames) must NOT get a ?v= suffix -- it corrupts
+        // the base64 and the image fails to load. They already change each time.
+        if (url.startsWith('data:')) {
+          snapshotImage.src = url;
+        } else {
+          snapshotImage.src = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        }
       }
 
       const streamIndicator = document.getElementById('streamIndicator');

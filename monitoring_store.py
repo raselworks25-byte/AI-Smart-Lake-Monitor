@@ -154,8 +154,16 @@ class MonitoringStore:
         # actual connectivity instead of a hardcoded "Online".
         self.last_ingest_at: datetime | None = None
 
+        # Cumulative detection totals -- grow over time, never reset.
+        # Persisted to Firebase so they survive restarts.
+        self.total_bottles = 0
+        self.total_debris = 0
+        self._prev_bottle = 0
+        self._prev_debris = 0
+
         self._bootstrap_firebase()
         self._load_persisted_users()
+        self._load_detection_totals()
 
     def _bootstrap_firebase(self) -> None:
         # Firebase is optional. If anything goes wrong (missing credentials,
@@ -198,6 +206,17 @@ class MonitoringStore:
         if not self._use_firebase():
             return None
         return self.firebase_root.child(path)
+
+    def _load_detection_totals(self) -> None:
+        """Load cumulative detection totals from Firebase so they survive restarts."""
+        if not self._use_firebase():
+            return
+        try:
+            data = self._read_value("detection/totals", {}) or {}
+            self.total_bottles = int(data.get("total_bottles", 0) or 0)
+            self.total_debris = int(data.get("total_debris", 0) or 0)
+        except Exception:
+            pass
 
     def _read_collection(self, path: str) -> list[dict[str, Any]]:
         ref = self._root_child(path)
@@ -332,11 +351,10 @@ class MonitoringStore:
         rows = self._read_collection("detection_logs") if self._use_firebase() else self.detection_log
         latest_rows = rows[:10]
         latest = latest_rows[0] if latest_rows else {}
-        # Current detection = counts from the most recent frame (no framerate inflation)
-        plastic_bottle = int(latest.get("bottle_count", 0) or 0)
-        debris = int(latest.get("debris_count", 0) or 0)
-        # Recent activity total across the last few frames
-        total_waste = sum(int(row.get("total_objects", 0) or 0) for row in latest_rows)
+        # Cumulative totals -- grow over time, never reset to 0.
+        plastic_bottle = self.total_bottles
+        debris = self.total_debris
+        total_waste = self.total_bottles + self.total_debris
         return {
             "plastic_bottle": plastic_bottle,
             "debris": debris,
@@ -456,6 +474,19 @@ class MonitoringStore:
         else:
             self.detection_log.insert(0, {"timestamp": timestamp, "class_id": class_id, "class_name": class_name, "object_type": class_name, "bottle_count": bottle_count, "debris_count": debris_count, "total_objects": total_objects, "confidence": record["confidence_score"]})
             self.detection_log = self.detection_log[:200]
+        # ---- Cumulative counting: add only NEW objects since the last frame ----
+        # (A static object staying in view is not re-counted every frame.)
+        new_bottles = max(0, bottle_count - self._prev_bottle)
+        new_debris = max(0, debris_count - self._prev_debris)
+        self.total_bottles += new_bottles
+        self.total_debris += new_debris
+        self._prev_bottle = bottle_count
+        self._prev_debris = debris_count
+        if self._use_firebase():
+            self._write_value("detection/totals", {
+                "total_bottles": self.total_bottles,
+                "total_debris": self.total_debris,
+            })
         self.last_ingest_at = datetime.utcnow()
         self.system_snapshot["last_update"] = _utc(self.last_ingest_at)
         return record
