@@ -188,12 +188,15 @@ def parse_date(value: str):
 
 
 def report_summary(water_rows, detection_rows):
+    def _is(row, *words):
+        s = str(row.get("status", "")).lower()
+        return any(w in s for w in words)
     return {
         "water_samples": len(water_rows),
         "detections": len(detection_rows),
-        "good_status": sum(1 for row in water_rows if row["status"] == "Good"),
-        "moderate_status": sum(1 for row in water_rows if row["status"] == "Moderate"),
-        "poor_status": sum(1 for row in water_rows if row["status"] == "Poor"),
+        "good_status": sum(1 for row in water_rows if _is(row, "good", "clean")),
+        "moderate_status": sum(1 for row in water_rows if _is(row, "moderate", "normal")),
+        "poor_status": sum(1 for row in water_rows if _is(row, "poor", "dirty")),
         "total_objects": sum(row["total_objects"] for row in detection_rows),
     }
 
@@ -433,7 +436,7 @@ def reports():
         user=current_user(),
         filters=filters,
         report=payload,
-        water_quality_statuses=["all", "Good", "Moderate", "Poor"],
+        water_quality_statuses=["all", "Clean Water", "Normal Water", "Dirty Water", "Good", "Moderate", "Poor"],
         detection_types=["all", *DETECTION_CLASS_NAMES],
         summary=report_summary(payload["water_logs"], payload["detections"]),
         query_params=request.args.to_dict(flat=True),

@@ -230,7 +230,7 @@
             </span>
           </td>
           <td>
-            <span class="status-badge {{ 'status-ok' if row.status == 'Good' else 'status-warn' if row.status == 'Moderate' else 'status-bad' }}">
+            <span class="status-badge {{ 'status-ok' if ('good' in row.status|lower or 'clean' in row.status|lower) else 'status-warn' if ('moderate' in row.status|lower or 'normal' in row.status|lower) else 'status-bad' }}">
               {{ row.status }}
             </span>
           </td>

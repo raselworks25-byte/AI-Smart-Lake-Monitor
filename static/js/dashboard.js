@@ -53,9 +53,11 @@
   /* ── Helpers ── */
   const statusClass = (value) => {
     const v = String(value).toLowerCase();
-    if (v.includes('online') || v.includes('good') || v.includes('streaming') || v.includes('healthy')) return 'status-ok';
-    if (v.includes('moderate') || v.includes('warning')) return 'status-warn';
-    return 'status-bad';
+    // Red only for genuinely bad states.
+    if (v.includes('dirty') || v.includes('poor') || v.includes('bad') || v.includes('offline') || v.includes('danger')) return 'status-bad';
+    if (v.includes('online') || v.includes('good') || v.includes('clean') || v.includes('streaming') || v.includes('healthy')) return 'status-ok';
+    if (v.includes('normal') || v.includes('moderate') || v.includes('warning')) return 'status-warn';
+    return 'status-warn';
   };
 
   const buildMetricTile = (name, value, subtitle, status = '') => `
@@ -157,10 +159,17 @@
       const snapshotImage = document.getElementById('streamSnapshotImage');
       if (snapshotImage && payload.snapshot_url) {
         const url = payload.snapshot_url;
-        // data: URLs (base64 frames) must NOT get a ?v= suffix -- it corrupts
-        // the base64 and the image fails to load. They already change each time.
         if (url.startsWith('data:')) {
-          snapshotImage.src = url;
+          // Skip if the frame hasn't changed (avoids needless repaint).
+          if (snapshotImage.dataset.frameSig !== url.length + ':' + url.slice(-24)) {
+            // Preload into an off-screen Image first, then swap — no flicker.
+            const pre = new Image();
+            pre.onload = () => {
+              snapshotImage.src = url;
+              snapshotImage.dataset.frameSig = url.length + ':' + url.slice(-24);
+            };
+            pre.src = url;
+          }
         } else {
           snapshotImage.src = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
         }
@@ -298,5 +307,5 @@
   setInterval(loadOverview, 10000);
   setInterval(loadLogs,     20000);
   setInterval(refreshTrend, 30000);
-  setInterval(refreshStreamSnapshot, 5000);
+  setInterval(refreshStreamSnapshot, 1000);
 })();

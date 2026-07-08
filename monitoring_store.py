@@ -287,6 +287,11 @@ class MonitoringStore:
         object_type = _normalize(filters.get("object_type"))
         status = _normalize(filters.get("status"))
         search = _normalize(filters.get("search") or filters.get("query"))
+        # "all" (or empty) means: do not filter on that field.
+        if object_type in ("", "all"):
+            object_type = ""
+        if status in ("", "all"):
+            status = ""
 
         results: list[dict[str, Any]] = []
         for row in rows:
@@ -303,7 +308,7 @@ class MonitoringStore:
                     continue
                 results.append(self._serialise_detection(row))
             else:
-                if status and status != _normalize(row["status"]):
+                if status and status not in _normalize(row["status"]):
                     continue
                 if search and search not in _normalize(row["status"]):
                     continue
