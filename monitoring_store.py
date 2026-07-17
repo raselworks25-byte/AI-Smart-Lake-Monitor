@@ -609,6 +609,11 @@ class MonitoringStore:
         self.user_accounts = [u for u in self.user_accounts if u.email != email]
         self.user_accounts.append(account)
         self._persist_user(account)
+        if not self._use_firebase():
+            # No database -> the account lives only in memory and will be lost
+            # on restart. Tell the admin instead of failing silently.
+            return True, ("User updated, but NOT saved permanently: cloud database is off, "
+                          "so this account disappears when the server restarts.")
         return True, ("User updated." if existed else "User added.")
 
     def delete_user(self, email: str) -> tuple[bool, str]:
